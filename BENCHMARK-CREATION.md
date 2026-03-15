@@ -2,6 +2,8 @@
 
 Step-by-step process for creating agent benchmarks that are simple, hack-resistant, and reproducible. Covers ideation through hardening with mandatory agent stress-testing.
 
+> **Acknowledgment.** The rubric criteria, automated check scripts, review pipeline structure, and many design principles in this guide are derived from [Terminal-Bench 3](https://github.com/harbor-framework/terminal-bench-3) by Stanford University and the Laude Institute. In particular, the [Task Implementation Rubric](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml) (19 criteria), [Task Review Automation](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md) (CI pipeline), and the `ci_checks/` scripts are adapted directly from TB3. See the [TB3 paper](https://arxiv.org/abs/2601.11868) for the full methodology.
+
 ## Principles
 
 - **Simplicity over complexity.** The agent's task should be simple to describe. Complexity lives in the _world_, not the instructions.

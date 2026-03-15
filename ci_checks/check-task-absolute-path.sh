@@ -1,4 +1,6 @@
 #!/bin/bash
+# Adapted from Terminal-Bench 3 (https://github.com/harbor-framework/terminal-bench-3)
+# Original: ci_checks/ in TB3 repository. Licensed under the TB3 project terms.
 
 # Script to check that task instructions use absolute paths rather than relative paths
 # This ensures tasks don't have implicit assumptions about working directory

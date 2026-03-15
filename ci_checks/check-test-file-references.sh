@@ -1,4 +1,6 @@
 #!/bin/bash
+# Adapted from Terminal-Bench 3 (https://github.com/harbor-framework/terminal-bench-3)
+# Original: ci_checks/ in TB3 repository. Licensed under the TB3 project terms.
 
 # Script to check that all files referenced in test_*.py are mentioned in instruction.md
 # This ensures task definitions don't have implicit assumptions about expected output files.

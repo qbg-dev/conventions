@@ -1,4 +1,6 @@
 #!/bin/bash
+# Adapted from Terminal-Bench 3 (https://github.com/harbor-framework/terminal-bench-3)
+# Original: ci_checks/ in TB3 repository. Licensed under the TB3 project terms.
 
 # Exit on error
 set -e
