@@ -6,10 +6,11 @@ Step-by-step process for creating agent benchmarks that are simple, hack-resista
 
 ## Principles
 
-- **Simplicity over complexity.** The agent's task should be simple to describe. Complexity lives in the _world_, not the instructions.
-- **Rich worlds.** Drop the agent into an environment with filesystems, databases, mock APIs, MCP tools, and mutable external state. The agent should be able to explore and act, not just generate code.
-- **Outcome verification.** Grade what the agent produced, not how it got there.
-- **Convergence through iteration.** Hardening ends when 3 consecutive agent runs find nothing to fix.
+**Simplicity and rich worlds.** The agent's task should be simple to describe—one sentence. Complexity lives in the _world_, not the instructions. Drop the agent into an environment with filesystems, databases, mock APIs, MCP tools, and mutable external state. The agent explores and acts, not just generates code. Instruction complexity should be inversely proportional to world complexity. Read [APEX-Agents](https://arxiv.org/abs/2601.14242) (480 tasks, 33 "worlds") and the [Archipelago](https://github.com/Mercor-Intelligence/archipelago) evaluation framework for the gold standard on world design.
+
+**Outcome verification through iteration.** Grade what the agent produced, not how it got there. Hardening is iterative: run real agents (Claude + Codex), find vulnerabilities, fix them, repeat. Stop only after 3 consecutive clean passes from both agents. This convergence criterion is non-negotiable—analytical hardening alone is insufficient.
+
+**Empirical verification.** Every conclusion must be accompanied by end-to-end testing. Mocks do not work, because benchmark validity is the first-order concern. Nothing else matters as much as validity. If a test claims to catch reward hacking, prove it by attempting the hack. If the environment claims to be self-contained, build it from scratch and verify.
 
 ---
 
@@ -17,14 +18,15 @@ Step-by-step process for creating agent benchmarks that are simple, hack-resista
 
 ### 1.1 Define the core challenge
 
-Write one sentence: what must the agent do? If it takes more than one sentence, the task is too complex or under-specified.
+- [ ] Write one sentence describing what the agent must do
+- [ ] If it takes more than one sentence, the task is too complex or under-specified
 
 Good: "Build a fault-tolerant training loop that survives random worker kills and reaches 80% accuracy."
 Bad: "Implement a distributed training system with checkpointing, gradient accumulation, learning rate scheduling, and fault tolerance."
 
-### 1.2 Check against the TB3 rubric
+### 1.2 Score against the TB3 rubric
 
-The full rubric with detailed guidance for each criterion is at [`TASK_IMPLEMENTATION_RUBRIC.toml`](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml). Before writing any code, score your idea against all 13 criteria. Each must be at least "accept":
+The full rubric with detailed guidance is at [`TASK_IMPLEMENTATION_RUBRIC.toml`](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml). Score your idea against all 13 criteria. Each must be at least "accept":
 
 | #   | Criterion                      | Question to answer                                                 |
 | --- | ------------------------------ | ------------------------------------------------------------------ |
@@ -42,90 +44,100 @@ The full rubric with detailed guidance for each criterion is at [`TASK_IMPLEMENT
 | 12  | **Novel**                      | Can it be solved by memorization from training data?               |
 | 13  | **Agentic**                    | Does it require multi-step tool use, not just one-shot generation? |
 
-**Kill the idea early** if criteria 1, 2, 3, or 7 score "reject." These are structural and hard to fix later.
+- [ ] All 13 criteria scored
+- [ ] Criteria 1, 2, 3, and 7 are NOT "reject" (these are structural and hard to fix later—kill the idea early if any fail)
 
-### 1.3 Design the world, not just the task
+### 1.3 Design the world
 
-The benchmark environment should feel like a real system the agent is dropped into. Design it as a world with:
+The benchmark environment should feel like a real system. Design it as a world:
 
 | Layer                | Examples                                            | Purpose                                      |
 | -------------------- | --------------------------------------------------- | -------------------------------------------- |
-| **Filesystem**       | Config files, data directories, logs, existing code | Agent must explore and understand            |
-| **Running services** | HTTP servers, databases, message queues             | Agent must interact with live processes      |
-| **Mock APIs**        | REST endpoints, webhooks, external services         | Agent can call and mutate external state     |
-| **MCP tools**        | Custom tool servers for domain-specific operations  | Agent uses tools rather than reimplementing  |
-| **Databases**        | SQLite, PostgreSQL with schema and seed data        | Agent queries and mutates real data          |
-| **State**            | Process supervisors, cron jobs, log streams         | Agent operates in a system with moving parts |
+| **Filesystem**       | Config files, data directories, logs, existing code | Agent must explore and understand             |
+| **Running services** | HTTP servers, databases, message queues             | Agent must interact with live processes       |
+| **Mock APIs**        | REST endpoints, webhooks, external services         | Agent can call and mutate external state      |
+| **MCP tools**        | Custom tool servers for domain-specific operations  | Agent uses tools rather than reimplementing   |
+| **Databases**        | SQLite, PostgreSQL with schema and seed data        | Agent queries and mutates real data           |
+| **State**            | Process supervisors, cron jobs, log streams         | Agent operates in a system with moving parts  |
 
-All of these are mock/containerized, but from the agent's perspective they are real. The agent should be able to mutate state and see consequences.
+All layers are mock/containerized, but from the agent's perspective they are real. The agent mutates state and sees consequences.
 
-**Rule: instruction complexity should be inversely proportional to world complexity.** A rich world means shorter instructions. The agent explores and discovers, rather than following a recipe.
+- [ ] World has at least 2 layers from the table above
+- [ ] Environment is sanitized: no git history, commit messages, build logs, or other artifacts that leak solution information (agents will read anything available—`.git/`, build outputs, log files with stack traces)
+- [ ] Instruction complexity is inversely proportional to world complexity
 
 ### 1.4 Define the verification boundary
 
-Write the verifier before the solution. What does "correct" look like?
-
-- Prefer executing the output (run the server, query the database, measure accuracy) over inspecting the source.
-- Verification must be deterministic. If the task involves randomness, define tolerance bands or use seeds.
-- The verifier should take < 5 minutes. If it takes longer, the task's feedback loop is too slow for iteration.
+- [ ] Verifier written before the solution
+- [ ] Verifier executes outputs (runs the server, queries the database, measures accuracy) rather than inspecting source
+- [ ] Verification is deterministic (if randomness is involved, define tolerance bands or use seeds)
+- [ ] Verifier runs in under 5 minutes
 
 ---
 
 ## Phase 2: Implementation
 
-### 2.1 Build the environment first
+### 2.1 Build the environment
+
+Use the [Harbor task format](https://harborframework.com/docs/tasks) exactly:
 
 ```
 task/
-├── instruction.md          # What the agent sees (short, clear, absolute paths)
-├── task.toml               # Metadata, resource limits, timeouts
+├── instruction.md          # What the agent sees
+├── task.toml               # Metadata (see validate-task-fields.sh for required fields)
 ├── environment/
 │   ├── Dockerfile          # Self-contained world (all deps, data, services)
 │   └── data/               # Pre-provided files, configs, mock services
 ├── solution/
 │   └── solve.sh            # Reference solution (proves solvability)
 └── tests/
-    ├── test.sh             # Entry point for verification
-    └── test_state.py       # Programmatic checks
+    ├── test.sh             # Entry point: runs tests, writes reward to /logs/verifier/reward.txt
+    └── test_state.py       # Programmatic checks (pytest)
 ```
 
-Build and test the Dockerfile independently before writing the solution:
+Key conventions from the Harbor format:
+- `task.toml` must include: `author`, `category`, `tags`, `difficulty`, `timeout`, `resources`
+- `test.sh` must write `1` or `0` to `/logs/verifier/reward.txt`
+- `test.sh` must produce CTRF-format JSON at `/logs/verifier/ctrf.json`
+- All test dependencies (pytest, etc.) must be pre-installed in the Docker image
+- A canary GUID must appear in every task file (instruction.md, test.sh, test_state.py, Dockerfile)
+
+Verification:
 
 ```bash
 docker build -t my-task environment/
-docker run --rm -it my-task bash  # explore manually
+docker run --rm -it my-task bash  # explore manually, verify world state
 ```
+
+- [ ] Dockerfile builds successfully
+- [ ] Container starts with all services running
+- [ ] No network access needed at runtime
+- [ ] Canary GUID present in all task files
 
 ### 2.2 Write the instruction
 
-Follow these rules:
-
-1. **All paths absolute.** `/app/output/model.pt`, not `model.pt`.
-2. **State the single deliverable.** "Create `/app/train.py`" or "Configure the database so queries X, Y, Z return correct results."
-3. **Document what's pre-provided.** List every file, service, and tool available to the agent.
-4. **State the success criterion.** "The model must achieve >80% accuracy" or "All API endpoints must return 200."
-5. **No hints about approach.** Say what, not how. Let the agent choose its strategy.
-6. **Under 100 lines.** If the instruction is longer, the world isn't rich enough. Move complexity into the environment.
+- [ ] All paths absolute (`/app/output/model.pt`, not `model.pt`)
+- [ ] Single deliverable stated ("Create `/app/train.py`" or "Configure the database so queries X, Y, Z return correct results")
+- [ ] Documents what's pre-provided (every file, service, and tool available)
+- [ ] States success criterion with a number ("model must achieve >80% accuracy", "all API endpoints must return 200")
+- [ ] No hints about approach (says what, not how)
+- [ ] Under 100 lines (if longer, the world isn't rich enough—move complexity into the environment)
 
 ### 2.3 Write the reference solution
 
-The solution must:
-
-- Pass all tests deterministically.
-- Complete within the agent timeout.
-- Be implementable by a domain expert in a few hours.
-- Not be the only possible approach.
+- [ ] Passes all tests deterministically
+- [ ] Completes within the agent timeout
+- [ ] Implementable by a domain expert in a few hours
+- [ ] Is not the only possible approach
 
 ### 2.4 Write the verifier
 
-Tests should:
-
-- Execute behavior, not grep for keywords.
-- Be independent (each test class sets up its own state).
-- Fail with actionable error messages.
-- Cover: core functionality (60%), error handling (30%), edge cases (10%).
-- Never silently skip (`pytest.skip` or bare `except: pass` are bugs in benchmarks).
-- Never accept outputs without validating correctness (no `assert resp.status_code == 200` without checking the body).
+- [ ] Tests execute behavior, not grep for keywords
+- [ ] Each test class sets up its own state (tests are independent)
+- [ ] Every test has an actionable failure message explaining what went wrong and what was expected
+- [ ] Coverage: core functionality (60%), error handling (30%), edge cases (10%)
+- [ ] No silent skips (`pytest.skip` or bare `except: pass` are bugs in benchmarks)
+- [ ] No shallow assertions (`assert resp.status_code == 200` without checking the body)
 
 ### 2.5 Pin everything
 
@@ -134,19 +146,19 @@ FROM python:3.12.8-slim           # pin patch version
 RUN pip install torch==2.5.1      # pin library versions
 ```
 
-Pre-install test dependencies in the Docker image so tests work without network access.
+- [ ] Base image pinned to patch version
+- [ ] All pip/apt packages pinned
+- [ ] Test dependencies pre-installed in Docker image (no network needed for tests)
 
 ---
 
-## Phase 3: First-pass hardening (analytical)
+## Phase 3: Analytical hardening
 
-Before running agents, do a manual red-team pass:
+Before running agents, do a manual red-team pass.
 
 ### 3.1 Enumerate attack vectors
 
 For each test, ask: "What's the simplest thing an agent could do to pass this test without solving the real problem?"
-
-Common bypasses:
 
 | Attack                                    | Mitigation                                                    |
 | ----------------------------------------- | ------------------------------------------------------------- |
@@ -157,6 +169,10 @@ Common bypasses:
 | Read test source to extract answers       | Don't embed answers in tests; verify via execution            |
 | Monkey-patch libraries                    | Test in subprocess or verify library integrity                |
 | Skip the hard part, only do the easy part | Tests must check the hard part directly                       |
+| Read environment artifacts for clues      | Sanitize `.git/`, build logs, stack traces, temp files        |
+
+- [ ] Every test has a corresponding "cheapest bypass" identified
+- [ ] Every bypass has a mitigation implemented or documented as accepted risk
 
 ### 3.2 Add integrity checks
 
@@ -176,6 +192,9 @@ def test_infrastructure_integrity():
     assert actual == expected[0], f"{expected[1]} was tampered with"
 ```
 
+- [ ] All infrastructure files (scripts, configs the agent shouldn't touch) are read-only (chmod 444)
+- [ ] SHA-256 hashes computed at build time and verified at test time
+
 ### 3.3 Add temporal/duration checks
 
 If the task requires real computation (training, processing, building):
@@ -188,6 +207,9 @@ def test_minimum_duration():
     assert duration >= MIN_EXPECTED_SECONDS
 ```
 
+- [ ] Minimum wall-clock duration enforced if applicable
+- [ ] Timestamps verified for temporal consistency (not fabricated)
+
 ---
 
 ## Phase 4: Agent hardening (iterative)
@@ -196,31 +218,60 @@ This is the critical phase. Run real agents against the benchmark and iterate.
 
 ### 4.1 Setup
 
-You need two agent runtimes:
+You need two agent runtimes. Use the SDKs (not CLIs) to programmatically control the agent's environment, tools, and model:
 
-```bash
-# Claude Code CLI
-claude --version  # must be installed
+**Claude Agents SDK** ([docs](https://docs.anthropic.com/en/docs/agents-sdk)):
 
-# OpenAI Codex CLI
-codex --version   # must be installed
+```python
+from claude_agent_sdk import Agent, Task
+
+agent = Agent(
+    model="claude-sonnet-4-6",  # use latest available model
+    tools=["bash", "read", "write", "edit"],
+    max_tokens=16384,
+)
+task = Task(
+    prompt="You are inside a Docker container. Read /app/instruction.md and complete the task.",
+    working_directory="/app",
+)
+result = agent.run(task)
 ```
+
+**OpenAI Agents SDK** ([docs](https://openai.github.io/openai-agents-python/)):
+
+```python
+from agents import Agent, Runner
+
+agent = Agent(
+    name="benchmark-solver",
+    model="gpt-5.4",  # use latest available model
+    instructions="You are inside a Docker container. Read /app/instruction.md and complete the task.",
+)
+result = Runner.run_sync(agent)
+```
+
+Configure both with:
+- [ ] Latest available model specified explicitly
+- [ ] High effort/reasoning mode enabled
+- [ ] Standard tool set (bash, read, write, edit)
+- [ ] MCP server tools if the task provides them
+- [ ] No access to `solution/` or `tests/` directories
 
 ### 4.2 The hardening loop
 
-Each iteration has 3 steps. Run **at least 5 iterations**, stopping only after **3 consecutive clean passes**.
+Run **at least 5 iterations**, stopping only after **3 consecutive clean passes**.
 
 ```
 ┌─────────────────────────────────────────────────┐
 │                 HARDENING LOOP                  │
 │                                                 │
 │  Step 1: Environment setup                      │
-│    Clone repo → build Docker → verify structure │
+│    Clone fresh → build Docker → verify structure│
 │                                                 │
 │  Step 2: Agent solve attempt                    │
 │    Run Claude agent on the task                 │
 │    Run Codex agent on the task                  │
-│    Both must either solve correctly OR fail      │
+│    Both must either solve correctly OR fail     │
 │    for the right reasons                        │
 │                                                 │
 │  Step 3: Examine results                        │
@@ -238,22 +289,18 @@ Each iteration has 3 steps. Run **at least 5 iterations**, stopping only after *
 
 ### 4.3 Step 1: Environment setup verification
 
-Clone the repo fresh and verify everything builds:
-
 ```bash
 WORKDIR=$(mktemp -d)
 git clone --depth 1 $REPO_URL $WORKDIR/task
 cd $WORKDIR/task
 
-# Verify file structure
+# Verify all required files exist
 for f in instruction.md task.toml environment/Dockerfile solution/solve.sh tests/test.sh; do
     [ -f "$f" ] || echo "MISSING: $f"
 done
 
-# Build Docker image
+# Build and run reference solution
 docker build -t benchmark-test environment/
-
-# Run reference solution
 docker run --rm \
     -v $(pwd)/solution:/solution:ro \
     -v $(pwd)/tests:/tests:ro \
@@ -262,60 +309,48 @@ docker run --rm \
 # Must exit 0 with reward=1.0
 ```
 
+- [ ] Fresh clone builds successfully
+- [ ] Reference solution passes all tests (reward = 1.0)
+
 ### 4.4 Step 2: Agent solve attempt
 
-Run both agents independently. Use the Claude Agents SDK or Codex SDK to provide the agent only:
-
+Run both agents independently. Provide only:
 - The instruction.md content
 - Access to the running Docker container
 - No access to solution/ or tests/
 
-```bash
-# Claude Code — solve in container
-claude --model claude-sonnet-4-6 \
-    --print \
-    --allowedTools "Bash,Read,Write,Edit" \
-    -p "You are inside a Docker container. Read /app/instruction.md and complete the task."
-
-# Codex CLI — solve in container
-codex exec \
-    "Read /app/instruction.md and complete the task described."
-```
-
-The agent should solve the task or fail for legitimate reasons (difficulty, not ambiguity).
+- [ ] Claude agent ran to completion
+- [ ] Codex agent ran to completion
+- [ ] Agent solved correctly OR failed for legitimate reasons (difficulty, not ambiguity)
 
 ### 4.5 Step 3: Examine results
 
-After each agent run, check this list:
+After each agent run, check:
 
 **Verifier quality:**
-
-- [ ] Did the verifier produce the correct reward (1.0 for solution, 0.0 for hacks)?
-- [ ] Did any test silently skip or pass vacuously?
-- [ ] Were error messages actionable (would they help debug a real attempt)?
+- [ ] Verifier produced correct reward (1.0 for solution, 0.0 for hacks)
+- [ ] No test silently skipped or passed vacuously
+- [ ] Error messages are actionable (would they help debug a real attempt?)
 
 **Instruction clarity:**
+- [ ] Agent did not misunderstand any requirement
+- [ ] Agent did not attempt something reasonable that tests rejected unfairly
+- [ ] No implicit requirements unstated in instruction.md
+- [ ] Agent did not need information unavailable in the instruction or environment
 
-- [ ] Did the agent misunderstand any requirement?
-- [ ] Did the agent attempt something reasonable that the tests rejected unfairly?
-- [ ] Are there implicit requirements not stated in instruction.md?
-- [ ] Did the agent need information that wasn't in the instruction or discoverable in the environment?
-
-**Agent failure analysis:**
-
-- [ ] If the agent failed, was it because the task is hard (good) or because the setup is broken (bad)?
-- [ ] Did the agent hit timeout due to an environment issue, not task difficulty?
-- [ ] Did the agent get stuck on a dependency/setup issue instead of the actual problem?
+**Failure analysis:**
+- [ ] If agent failed, it was because the task is hard (good), not because setup is broken (bad)
+- [ ] Agent did not hit timeout due to environment issue
+- [ ] Agent did not get stuck on dependency/setup instead of the actual problem
 
 **Reward hack check:**
-
-- [ ] Could the agent's approach pass tests without solving the real problem?
-- [ ] Did the agent discover any shortcut not caught by the verifier?
-- [ ] Are there test-observable side effects the agent could fake?
+- [ ] Agent's approach cannot pass tests without solving the real problem
+- [ ] Agent did not discover shortcuts not caught by verifier
+- [ ] No test-observable side effects the agent could fake
 
 ### 4.6 Convergence criterion
 
-Track results in a table:
+Track results:
 
 | Round | Claude                       | Codex              | Issues found | Action taken                             |
 | ----- | ---------------------------- | ------------------ | ------------ | ---------------------------------------- |
@@ -323,24 +358,19 @@ Track results in a table:
 | 2     | Pass (reward hack!)          | Fail (timeout)     | 2            | Added integrity check, increased timeout |
 | 3     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #1                            |
 | 4     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #2                            |
-| 5     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #3 — DONE                     |
+| 5     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #3—DONE                       |
 
-**Exit condition:** 3 consecutive rounds where both agents either:
-
-- Solve correctly (proving the task is solvable and well-specified), OR
-- Fail for the right reasons (proving the task is genuinely difficult, not broken)
-
-AND no new hardening issues are discovered.
+**Exit condition:** 3 consecutive rounds where both agents either solve correctly (proving solvability) or fail for the right reasons (proving genuine difficulty), AND no new hardening issues are discovered.
 
 ---
 
 ## Phase 5: Review pipeline (human signoff required)
 
-Adapted from [TB3 Task Review Automation](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md). The TB3 pipeline uses GPTZero for AI detection and automated rubric scoring. Our pipeline replaces AI detection with mandatory human signoff, because the two most important quality gates cannot be automated: a human reading the instruction and a human walking through the solution.
+Adapted from [TB3 Task Review Automation](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md). Our pipeline replaces AI detection with mandatory human signoff, because the two most important quality gates cannot be automated: a human reading the instruction and a human walking through the solution.
 
 ### 5.1 Automated checks (run on every commit)
 
-These run without human intervention. Fail = fix before proceeding. Scripts are copied from [TB3's ci_checks](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md) and adapted for standalone use. All scripts are in [`ci_checks/`](ci_checks/) in this repo.
+Fail = fix before proceeding. Scripts adapted from [TB3's ci_checks](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md). All scripts in [`ci_checks/`](ci_checks/) in this repo.
 
 | Check | Script | What it catches |
 |---|---|---|
@@ -352,43 +382,37 @@ These run without human intervention. Fail = fix before proceeding. Scripts are 
 | **Test.sh sanity** | [`check-test-sh-sanity.sh`](ci_checks/check-test-sh-sanity.sh) | Missing Python environment isolation |
 | **Metadata validation** | [`validate-task-fields.sh`](ci_checks/validate-task-fields.sh) | Missing author, category, tags, difficulty in task.toml |
 
-Run all checks against your task:
-
 ```bash
+# Run all checks against your task
 cd your-benchmark-repo
 for script in ci_checks/*.sh; do bash "$script" tasks/your-task/; done
 ```
 
-Each script supports an `ALLOWLISTED_TASKS` array for legitimate exceptions. Edit the array inside the script to add exceptions with a documented reason.
+- [ ] All 7 automated checks pass
+- [ ] Any exceptions added to `ALLOWLISTED_TASKS` with documented reasons
 
 ### 5.2 Execution checks (run before human review)
 
-| Check | What it proves |
-|---|---|
-| **Docker build** | Environment builds from Dockerfile alone |
-| **Oracle validation** | Reference solution passes all tests (reward = 1.0) |
-| **Nop validation** | Doing nothing fails tests (task is non-trivial) |
-| **Rubric review** | LLM scores all 19 criteria from `TASK_IMPLEMENTATION_RUBRIC.toml` |
+- [ ] **Docker build**: Environment builds from Dockerfile alone
+- [ ] **Oracle validation**: Reference solution passes all tests (reward = 1.0)
+- [ ] **Nop validation**: Doing nothing fails tests (task is non-trivial)
+- [ ] **Rubric review**: All 13 criteria from `TASK_IMPLEMENTATION_RUBRIC.toml` scored
 
 ### 5.3 Human signoff (mandatory, cannot be skipped)
 
-Before the benchmark is considered finished, a human must complete both of these. No exceptions.
+Before the benchmark is considered finished, a human must complete both reviews. No exceptions.
 
-**Review 1: Read instruction.md end-to-end.**
-
-The reviewer (ideally the domain expert, not the person who wrote the benchmark) reads the instruction as if they were the agent. Checklist:
+**Review 1: Read instruction.md end-to-end.** The reviewer (ideally not the author) reads the instruction as if they were the agent.
 
 - [ ] Can I understand what to do without reading tests or solution?
-- [ ] Are there any implicit assumptions I needed domain knowledge to fill?
+- [ ] Are there any implicit assumptions requiring domain knowledge to fill?
 - [ ] Is every path absolute and every output file named?
 - [ ] Is the success criterion quantified and unambiguous?
 - [ ] Is there any sentence I would rephrase for clarity?
 - [ ] Does the instruction avoid prescribing approach (says what, not how)?
 - [ ] Is it under 100 lines? If not, what can move into the environment?
 
-**Review 2: Walk through solve.sh step by step.**
-
-The reviewer reads `solve.sh` (and any scripts it creates) and traces the execution mentally or in a shell:
+**Review 2: Walk through solve.sh step by step.** The reviewer traces execution mentally or in a shell.
 
 - [ ] Does every command do what the comment says?
 - [ ] Is there any fragile assumption (hardcoded paths, timing, race conditions)?
@@ -397,7 +421,9 @@ The reviewer reads `solve.sh` (and any scripts it creates) and traces the execut
 - [ ] Are checkpoint/output files written atomically (temp + rename)?
 - [ ] Does the solution complete within the agent timeout on the specified hardware?
 
-**Signoff format:**
+**Why human signoff matters:** Automated checks catch structural issues. Agent hardening catches gameable tests. Neither catches ambiguous language an agent interprets differently than intended, solution fragility depending on timing or undocumented assumptions, or missing context where the instruction assumes knowledge not in the environment.
+
+**Signoff format** (store as `SIGNOFF.md` alongside the task):
 
 ```
 ## Human Review Signoff
@@ -420,23 +446,11 @@ Date: [YYYY-MM-DD]
 Signed off: YES / NO (with reasons)
 ```
 
-Store this in a `SIGNOFF.md` file alongside the task. The signoff is part of the submission artifact.
-
-### 5.4 Why human signoff matters
-
-Automated checks catch structural issues. Agent hardening catches gameable tests. But neither catches:
-
-- **Ambiguous language** that an agent interprets differently than intended. Only a human reader notices "configure the database" could mean 3 different things.
-- **Solution fragility** where the reference solution works but depends on timing, ordering, or an undocumented assumption. Only a human tracing the code step-by-step catches "this race condition works on my machine."
-- **Missing context** where the instruction assumes knowledge not available in the environment. A human reading fresh spots "wait, how would I know to use port 8001?"
-
-The agent hardening loop finds issues agents hit. Human review finds issues agents _would_ hit but didn't because of lucky timing, model-specific behavior, or test order.
-
 ---
 
 ## Phase 6: Agent-eval integration
 
-Codify the hardening checks as an agent-eval test so they can be re-run automatically.
+Codify the hardening checks as an agent-eval test for automated re-runs.
 
 ```yaml
 name: my-task-verification
@@ -452,16 +466,15 @@ setup:
     save_as: workdir
 
 steps:
-  # Phase 1: Structure & reproducibility
+  # Structure & reproducibility
   - type: run
     name: clone-and-verify
     code: |
       git clone --depth 1 $REPO_URL {{workdir}}/task
-      # Verify all required files exist
     check:
       exit_code: 0
 
-  # Phase 2: Reference solution passes
+  # Reference solution passes
   - type: run
     name: run-reference-solution
     code: |
@@ -474,7 +487,7 @@ steps:
       exit_code: 0
       stdout: /^1$/
 
-  # Phase 3: Reward hack attempts (must fail)
+  # Reward hack attempt (must fail)
   - type: run
     name: reward-hack-trivial
     code: |
@@ -482,7 +495,7 @@ steps:
     check:
       stdout: /^0$|NO_REWARD/
 
-  # Phase 4: Convention compliance
+  # Convention compliance
   - type: ai_check
     name: instruction-quality
     description: |
@@ -500,30 +513,22 @@ teardown:
       rm -rf {{workdir}}
 ```
 
-Run 3 times independently to prove determinism:
-
-```bash
-for i in 1 2 3; do
-    bun run src/cli.ts run tests/benchmarks/my-task.test.yaml
-done
-```
-
-All 3 must pass.
+- [ ] Agent-eval test runs 3 times independently
+- [ ] All 3 runs pass (proving determinism)
 
 ---
 
-## Checklist (before submission)
+## Final checklist (before submission)
 
 ### Environment
-
 - [ ] Dockerfile builds in < 15 minutes
 - [ ] No network needed at runtime (all deps pre-installed)
 - [ ] All dependency versions pinned
 - [ ] Infrastructure files read-only with hash verification
 - [ ] Test deps pre-installed in Docker image
+- [ ] Environment sanitized (no `.git/`, build logs, or artifacts leaking solution info)
 
 ### Instruction
-
 - [ ] Under 100 lines
 - [ ] All paths absolute
 - [ ] Single clear deliverable stated
@@ -532,7 +537,6 @@ All 3 must pass.
 - [ ] Canary string present
 
 ### Verifier
-
 - [ ] No silent skips or bare exceptions
 - [ ] Tests execute behavior, not grep for keywords
 - [ ] Every test has an actionable failure message
@@ -540,24 +544,21 @@ All 3 must pass.
 - [ ] Reference solution scores 1.0
 
 ### Hardening
-
 - [ ] >= 5 hardening rounds completed
 - [ ] 3 consecutive clean passes achieved
-- [ ] Both Claude and Codex agents tested
+- [ ] Both Claude and Codex agents tested (via SDKs)
 - [ ] All discovered vulnerabilities closed or documented
 - [ ] Agent-eval test created and passes 3x
 
 ### Human signoff
-
 - [ ] Human reviewed instruction.md end-to-end (not the author)
 - [ ] Human traced solve.sh step by step
 - [ ] SIGNOFF.md committed with reviewer name and date
 - [ ] No issues found, or all issues resolved before signoff
 
 ### Submission
-
-- [ ] Matches upstream repo format exactly
-- [ ] All automated checks pass (canary, Dockerfile, paths, metadata)
+- [ ] Matches upstream repo format exactly (see contributing guides below)
+- [ ] All 7 automated checks pass (canary, Dockerfile, paths, metadata)
 - [ ] Oracle passes, nop fails
 - [ ] Agent-eval test committed
 - [ ] SIGNOFF.md included
@@ -565,43 +566,57 @@ All 3 must pass.
 
 ---
 
+## Contributing guides
+
+When submitting to existing benchmarks, follow their specific format:
+
+| Benchmark | Contributing guide | Format |
+|---|---|---|
+| **Terminal-Bench 3** | [TB3 Contribution Call](https://www.tbench.ai/news/tb3-contribution-call) | [Harbor task format](https://harborframework.com/docs/tasks) |
+| **SlopCodeBench** | [SCBench Contributing](https://github.com/SprocketLab/slop-code-bench/tree/main/docs/contributing-problems) | Checkpoint-based config.yaml |
+| **METR** | [METR Task Standard](https://github.com/METR/task-standard) | METR task format |
+
+---
+
 ## Resources
 
-Foundational reading for creating state-of-the-art benchmarks. Organized by what you'll use them for.
+Foundational reading for state-of-the-art benchmarks. Organized by use case.
 
 ### Benchmark design methodology
 
 | Resource | Key takeaway |
 |---|---|
-| [TB3 Implementation Rubric](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml) | 19-criteria rubric with detailed guidance. The quality bar to hit. |
+| [TB3 Implementation Rubric](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml) | 19-criteria rubric with detailed guidance. The quality bar. |
 | [TB3 Review Automation](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md) | Automated pipeline: static checks → execution checks → agent trials. |
-| [BetterBench](https://arxiv.org/abs/2411.12990) (Stanford, NeurIPS 2024) | 46-criteria framework for evaluating benchmark quality. Most benchmarks fail to report statistical significance or enable replication. |
-| [Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (Anthropic, 2025) | Start with 20-50 tasks from real failures, grade outcomes not tool-call sequences, use pass@k for non-deterministic systems. |
-| [Challenges in Evaluating AI Systems](https://www.anthropic.com/research/evaluating-ai-systems) (Anthropic, 2023) | Multiple-choice formatting sensitivity shifts scores by ~5%. Human evaluation is subjective. Model-generated evals are circular. |
+| [APEX-Agents](https://arxiv.org/abs/2601.14242) (Mercor) | 480 tasks across 33 "worlds." Professional experts create scenarios, define grading. Gold standard for world design. |
+| [Archipelago](https://github.com/Mercor-Intelligence/archipelago) (Mercor) | Open-source Docker sandbox harness for running agent evaluations inside APEX worlds. |
+| [BetterBench](https://arxiv.org/abs/2411.12990) (Stanford, NeurIPS 2024) | 46-criteria framework. Most benchmarks fail to report statistical significance or enable replication. |
+| [Demystifying Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (Anthropic, 2025) | Start with 20-50 tasks from real failures, grade outcomes not tool-call sequences, use pass@k. |
+| [Challenges in Evaluating AI Systems](https://www.anthropic.com/research/evaluating-ai-systems) (Anthropic, 2023) | Multiple-choice formatting sensitivity shifts scores ~5%. Model-generated evals are circular. |
 
 ### Construct validity (does your benchmark measure what it claims?)
 
 | Resource | Key takeaway |
 |---|---|
-| [Measuring What Matters](https://arxiv.org/pdf/2511.04703) (NeurIPS 2025) | 445 benchmarks reviewed; patterns undermining validity of "safety" and "robustness" claims. 8 recommendations. |
-| [Measurement to Meaning](https://arxiv.org/abs/2505.10573) (2025) | Distinguish narrow claims (performance on math tests) from broad claims (general reasoning). |
-| [The Evolving Landscape of LLM Evaluation](https://newsletter.ruder.io/p/the-evolving-landscape-of-llm-evaluation) (Ruder, 2024) | Models show 10% drops on GSM1k vs GSM8k, revealing benchmark-specific overfitting. Assume contamination by design. |
+| [Measuring What Matters](https://arxiv.org/pdf/2511.04703) (NeurIPS 2025) | 445 benchmarks reviewed; 8 recommendations for valid measurement. |
+| [Measurement to Meaning](https://arxiv.org/abs/2505.10573) (2025) | Distinguish narrow claims (math test scores) from broad claims (general reasoning). |
+| [The Evolving Landscape of LLM Evaluation](https://newsletter.ruder.io/p/the-evolving-landscape-of-llm-evaluation) (Ruder, 2024) | 10% drops on GSM1k vs GSM8k reveal benchmark-specific overfitting. Assume contamination. |
 
 ### Anti-gaming and anti-contamination
 
 | Resource | Key takeaway |
 |---|---|
-| [LiveCodeBench](https://arxiv.org/abs/2403.07974) | Time-segmented evaluation: only test on problems released after model's training cutoff. 600+ problems. |
-| [EvalPlus](https://arxiv.org/abs/2305.01210) (NeurIPS 2023) | Adding 80x more tests to HumanEval dropped pass rates by 19-29%. Original test suites are always insufficient. |
+| [LiveCodeBench](https://arxiv.org/abs/2403.07974) | Time-segmented evaluation: only test on problems released after training cutoff. |
+| [EvalPlus](https://arxiv.org/abs/2305.01210) (NeurIPS 2023) | Adding 80x more tests dropped pass rates 19-29%. Original test suites are always insufficient. |
 | [Specification Gaming](https://deepmind.google/blog/specification-gaming-the-flip-side-of-ai-ingenuity/) (DeepMind) | Better algorithms find more creative loopholes. Specify outcomes comprehensively. |
-| [Reward Hacking in RL](https://lilianweng.github.io/posts/2024-11-28-reward-hacking/) (Lilian Weng, 2024) | Models modify unit tests to pass coding tasks, exploit length bias, exploit sophistication bias. |
-| [Demonstrating Specification Gaming in Reasoning Models](https://arxiv.org/pdf/2502.13295) (Palisade, 2025) | Reasoning LLMs hack chess by modifying the opponent's engine. Directly relevant to agent benchmarks with tool access. |
+| [Reward Hacking in RL](https://lilianweng.github.io/posts/2024-11-28-reward-hacking/) (Weng, 2024) | Models modify unit tests, exploit length bias, exploit sophistication bias. |
+| [Spec Gaming in Reasoning Models](https://arxiv.org/pdf/2502.13295) (Palisade, 2025) | Reasoning LLMs hack chess by modifying opponent's engine. Directly relevant to agent benchmarks. |
 
-### Contribution guides from leading benchmarks
+### Leading benchmark contribution guides
 
 | Benchmark | Format | Key design choices |
 |---|---|---|
-| [SWE-bench](https://arxiv.org/pdf/2310.06770) (Princeton) | Real GitHub issues + existing test suites | 2,294 tasks, 12 repos. Human-verified subset (SWE-bench Verified) used 93 developers, 3 annotators per sample. |
-| [BigCodeBench](https://arxiv.org/abs/2406.15877) (ICLR 2025) | 1,140 tasks, 723 function calls, 139 libraries | 99% branch coverage, avg 5.6 test cases/task. Human performance 97% vs best LLM ~60%. |
-| [GAIA](https://arxiv.org/abs/2311.12983) (Meta-FAIR) | 466 questions requiring reasoning + tool use | Humans 92% vs GPT-4 15%. Targets tasks simple for humans but hard for AI. |
+| [SWE-bench](https://arxiv.org/pdf/2310.06770) (Princeton) | Real GitHub issues + existing test suites | 2,294 tasks, 12 repos. Human-verified subset used 93 developers, 3 annotators/sample. |
+| [BigCodeBench](https://arxiv.org/abs/2406.15877) (ICLR 2025) | 1,140 tasks, 723 function calls, 139 libraries | 99% branch coverage, avg 5.6 test cases/task. |
+| [GAIA](https://arxiv.org/abs/2311.12983) (Meta-FAIR) | 466 questions requiring reasoning + tool use | Humans 92% vs GPT-4 15%. Simple for humans, hard for AI. |
 | [Terminal-Bench](https://arxiv.org/abs/2601.11868) (Stanford + Laude) | 89 curated terminal tasks with Docker environments | Frontier models cap at ~65%. 32,155 trials across 6 agents. |
