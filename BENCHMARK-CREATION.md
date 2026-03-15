@@ -218,129 +218,38 @@ This is the critical phase. Run real agents against the benchmark and iterate.
 
 ### 4.1 Setup
 
-You need two agent runtimes from different providers to stress-test from different angles. Both CLIs support non-interactive execution and use subscription auth (no API keys needed).
+You need two agent runtimes from different providers to stress-test from different angles. Both use subscription auth—no API keys needed.
 
-**Programmatic wrapper** (`hardening-runner.ts`):
+**OpenAI: [`@openai/codex-sdk`](https://github.com/openai/codex/tree/main/sdk/typescript)** ([npm](https://www.npmjs.com/package/@openai/codex-sdk), [docs](https://developers.openai.com/codex/sdk/)) — official TypeScript SDK that wraps the Codex CLI, exchanges JSONL events over stdin/stdout, and reuses your ChatGPT OAuth from `codex login`.
 
 ```typescript
-import { spawn } from "child_process";
-import { readFile, mkdtemp, rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+import Codex from "@openai/codex-sdk";
 
-interface HardeningResult {
-  agent: "claude" | "codex";
-  exitCode: number;
-  reward: number | null;
-  events: string[];      // JSONL lines (codex --json) or raw output (claude)
-  lastMessage: string;
-  durationMs: number;
+const codex = new Codex();
+const thread = codex.startThread();
+
+// Simple run — returns final output
+const result = await thread.run("Read /app/instruction.md and complete the task.");
+console.log(result.output);
+
+// Streamed run — react to tool calls, file changes, intermediate progress
+for await (const event of thread.runStreamed("Fix the failing tests.")) {
+  console.log(event.type, event);
 }
-
-/** Run a single agent attempt against a task in a Docker container. */
-async function runAgent(
-  agent: "claude" | "codex",
-  taskDir: string,
-  opts: { model?: string; timeout?: number } = {}
-): Promise<HardeningResult> {
-  const workdir = await mkdtemp(join(tmpdir(), "hardening-"));
-  const outputFile = join(workdir, "last-message.txt");
-  const prompt = "Read /app/instruction.md and complete the task.";
-  const start = Date.now();
-
-  const args =
-    agent === "claude"
-      ? [
-          "-p", prompt,
-          "--model", opts.model ?? "claude-sonnet-4-6",
-          "--allowedTools", "bash,read,write,edit",
-          "--max-turns", "100",
-          "--output-format", "json",
-          "-C", taskDir,
-        ]
-      : [
-          "exec", prompt,
-          "-m", opts.model ?? "gpt-5.4",
-          "--json",
-          "--sandbox", "workspace-write",
-          "-a", "never",
-          "-C", taskDir,
-          "-o", outputFile,
-        ];
-
-  const events: string[] = [];
-
-  const exitCode = await new Promise<number>((resolve) => {
-    const proc = spawn(agent === "claude" ? "claude" : "codex", args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: opts.timeout ?? 600_000, // 10 min default
-    });
-    proc.stdout.on("data", (chunk: Buffer) => {
-      for (const line of chunk.toString().split("\n").filter(Boolean)) {
-        events.push(line);
-      }
-    });
-    proc.stderr.on("data", (chunk: Buffer) => events.push(`[stderr] ${chunk}`));
-    proc.on("close", (code) => resolve(code ?? 1));
-  });
-
-  // Read reward from the standard location
-  let reward: number | null = null;
-  try {
-    const r = await readFile(join(taskDir, "logs/verifier/reward.txt"), "utf8");
-    reward = parseFloat(r.trim());
-  } catch {}
-
-  let lastMessage = "";
-  try { lastMessage = await readFile(outputFile, "utf8"); } catch {}
-
-  await rm(workdir, { recursive: true, force: true });
-
-  return { agent, exitCode, reward, events, lastMessage, durationMs: Date.now() - start };
-}
-
-/** Run one hardening round: both agents independently, then report. */
-async function hardeningRound(taskDir: string, round: number) {
-  console.log(`\n=== Round ${round} ===`);
-
-  const [claude, codex] = await Promise.all([
-    runAgent("claude", taskDir),
-    runAgent("codex", taskDir),
-  ]);
-
-  for (const r of [claude, codex]) {
-    const status = r.reward === 1 ? "PASS" : r.reward === 0 ? "FAIL" : "NO_REWARD";
-    console.log(`  ${r.agent}: ${status} (exit=${r.exitCode}, ${(r.durationMs / 1000).toFixed(0)}s)`);
-  }
-
-  return { claude, codex };
-}
-
-// --- Main loop: run until 3 consecutive clean passes ---
-async function main() {
-  const taskDir = process.argv[2];
-  if (!taskDir) { console.error("Usage: bun run hardening-runner.ts <task-dir>"); process.exit(1); }
-
-  let cleanCount = 0;
-  for (let round = 1; round <= 10 && cleanCount < 3; round++) {
-    const { claude, codex } = await hardeningRound(taskDir, round);
-    const clean = claude.exitCode === 0 && codex.exitCode === 0;
-    cleanCount = clean ? cleanCount + 1 : 0;
-    console.log(`  Clean passes: ${cleanCount}/3`);
-    if (!clean) console.log("  >> Fix issues, then re-run.");
-  }
-  console.log(cleanCount >= 3 ? "\nCONVERGED — benchmark hardened." : "\nDID NOT CONVERGE — review results.");
-}
-
-main();
 ```
+
+**Claude: Claude Code CLI** — use non-interactive mode with your Anthropic Max subscription.
 
 ```bash
-# Run it
-bun run hardening-runner.ts ./tasks/my-task/
+claude -p "Read /app/instruction.md and complete the task." \
+  --model claude-sonnet-4-6 \
+  --allowedTools bash,read,write,edit \
+  --max-turns 100 \
+  --output-format json \
+  -C ./tasks/my-task/
 ```
 
-> **Auth note:** Both CLIs use subscription auth. Claude Code uses your Anthropic Max subscription. Codex CLI uses ChatGPT Pro OAuth (`codex login`→`~/.codex/auth.json`). Neither requires an API key. The OpenAI _Agents SDK_ (`api.openai.com/v1/`) is a separate system requiring a `sk-...` API key—use `codex exec` instead.
+> **Auth note:** Both use subscription auth. Codex SDK reuses ChatGPT Pro OAuth (`codex login`→`~/.codex/auth.json`). Claude Code uses Anthropic Max. Neither requires an API key. The OpenAI _Agents SDK_ (`api.openai.com/v1/`) is a **separate** system requiring a `sk-...` API key with pay-per-token billing—use `@openai/codex-sdk` instead.
 
 Configure both with:
 - [ ] Latest available model specified explicitly
