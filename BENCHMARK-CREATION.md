@@ -218,36 +218,57 @@ This is the critical phase. Run real agents against the benchmark and iterate.
 
 ### 4.1 Setup
 
-You need two agent runtimes. Use the SDKs (not CLIs) to programmatically control the agent's environment, tools, and model:
+You need two agent runtimes from different providers to stress-test from different angles.
 
-**Claude Agents SDK** ([docs](https://docs.anthropic.com/en/docs/agents-sdk)):
+**Claude Code CLI** (recommended for Claude—uses existing auth):
+
+```bash
+# Run inside the Docker container's mounted workspace
+claude -p "You are inside a Docker container. Read /app/instruction.md and complete the task." \
+  --model claude-sonnet-4-6 \
+  --allowedTools bash,read,write,edit \
+  --max-turns 100
+```
+
+Or programmatically via the **Claude Agents SDK** ([docs](https://docs.anthropic.com/en/docs/agents-sdk)):
 
 ```python
 from claude_agent_sdk import Agent, Task
 
 agent = Agent(
-    model="claude-sonnet-4-6",  # use latest available model
+    model="claude-sonnet-4-6",
     tools=["bash", "read", "write", "edit"],
     max_tokens=16384,
 )
-task = Task(
+result = agent.run(Task(
     prompt="You are inside a Docker container. Read /app/instruction.md and complete the task.",
     working_directory="/app",
-)
-result = agent.run(task)
+))
 ```
 
-**OpenAI Agents SDK** ([docs](https://openai.github.io/openai-agents-python/)):
+**Codex CLI** (recommended for OpenAI—uses existing ChatGPT OAuth):
+
+```bash
+# Codex CLI uses ChatGPT subscription auth (no API key needed)
+# Auth: `codex login` → OAuth device flow → stored in ~/.codex/auth.json
+codex exec "Read /app/instruction.md and complete the task." \
+  --model gpt-5.4 \
+  --writable-root /app
+```
+
+> **Auth note:** Codex CLI's ChatGPT OAuth (`chatgpt.com/backend-api/codex/`) and the OpenAI Agents SDK (`api.openai.com/v1/`) use different endpoints and billing. Codex CLI works with your ChatGPT Pro subscription. The Agents SDK requires a separate `sk-...` API key with pay-per-token billing. Use the CLI for hardening unless you have an API key.
+
+If you have an OpenAI API key, the **OpenAI Agents SDK** ([docs](https://openai.github.io/openai-agents-python/)) is also an option:
 
 ```python
 from agents import Agent, Runner
 
 agent = Agent(
     name="benchmark-solver",
-    model="gpt-5.4",  # use latest available model
+    model="gpt-5.4",
     instructions="You are inside a Docker container. Read /app/instruction.md and complete the task.",
 )
-result = Runner.run_sync(agent)
+result = Runner.run_sync(agent)  # requires OPENAI_API_KEY env var
 ```
 
 Configure both with:
@@ -256,6 +277,7 @@ Configure both with:
 - [ ] Standard tool set (bash, read, write, edit)
 - [ ] MCP server tools if the task provides them
 - [ ] No access to `solution/` or `tests/` directories
+- [ ] Each run starts from a clean environment (no shared state between trials—see [Anthropic's eval guidance](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents))
 
 ### 4.2 The hardening loop
 
@@ -332,11 +354,23 @@ After each agent run, check:
 - [ ] No test silently skipped or passed vacuously
 - [ ] Error messages are actionable (would they help debug a real attempt?)
 
-**Instruction clarity:**
+**Instruction clarity** (distinguish good failures from bad—see [Mechanize](https://www.mechanize.work/what-working-here-is-like/)):
+
+Good failures (real capability gaps):
+- Agent failed to follow existing codebase conventions when implementing a new feature
+- Agent failed to proactively communicate a crucial design decision to stakeholders
+- Agent failed to reuse a function it defined earlier (code erosion over checkpoints)
+
+Bad failures (task design bugs—fix these):
+- Grader checked for a specific query parameter name the agent had no way of knowing
+- Agent interpreted "push to main" as forking then pushing, grader only checked origin/main → score 0
+- Tests require a specific approach when multiple valid approaches exist
+
 - [ ] Agent did not misunderstand any requirement
 - [ ] Agent did not attempt something reasonable that tests rejected unfairly
 - [ ] No implicit requirements unstated in instruction.md
 - [ ] Agent did not need information unavailable in the instruction or environment
+- [ ] If the agent failed, it was a _good_ failure (capability gap), not a _bad_ failure (task design bug)
 
 **Failure analysis:**
 - [ ] If agent failed, it was because the task is hard (good), not because setup is broken (bad)
