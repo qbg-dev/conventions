@@ -338,17 +338,26 @@ Adapted from [TB3 Task Review Automation](https://github.com/harbor-framework/te
 
 ### 5.1 Automated checks (run on every commit)
 
-These run without human intervention. Fail = fix before proceeding.
+These run without human intervention. Fail = fix before proceeding. Scripts are copied from [TB3's ci_checks](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md) and adapted for standalone use. All scripts are in [`ci_checks/`](ci_checks/) in this repo.
 
-| Check | What it catches |
-|---|---|
-| **Canary strings** | Missing contamination markers in any task file |
-| **Dockerfile references** | Solution/test files accidentally COPY'd into container |
-| **Dockerfile sanity** | Pinned apt packages (stale), missing cleanup |
-| **Absolute paths** | Relative paths in instruction.md |
-| **Test file references** | Output files in tests not mentioned in instruction.md |
-| **Metadata validation** | Missing author, category, tags, difficulty in task.toml |
-| **Similarity check** | TF-IDF cosine similarity >= 80% against known benchmarks |
+| Check | Script | What it catches |
+|---|---|---|
+| **Canary strings** | [`check-canary.sh`](ci_checks/check-canary.sh) | Missing contamination markers in any task file |
+| **Dockerfile references** | [`check-dockerfile-references.sh`](ci_checks/check-dockerfile-references.sh) | Solution/test files accidentally COPY'd into container |
+| **Dockerfile sanity** | [`check-dockerfile-sanity.sh`](ci_checks/check-dockerfile-sanity.sh) | Pinned apt packages (stale), missing cleanup |
+| **Absolute paths** | [`check-task-absolute-path.sh`](ci_checks/check-task-absolute-path.sh) | Relative paths in instruction.md |
+| **Test file references** | [`check-test-file-references.sh`](ci_checks/check-test-file-references.sh) | Output files in tests not mentioned in instruction.md |
+| **Test.sh sanity** | [`check-test-sh-sanity.sh`](ci_checks/check-test-sh-sanity.sh) | Missing Python environment isolation |
+| **Metadata validation** | [`validate-task-fields.sh`](ci_checks/validate-task-fields.sh) | Missing author, category, tags, difficulty in task.toml |
+
+Run all checks against your task:
+
+```bash
+cd your-benchmark-repo
+for script in ci_checks/*.sh; do bash "$script" tasks/your-task/; done
+```
+
+Each script supports an `ALLOWLISTED_TASKS` array for legitimate exceptions. Edit the array inside the script to add exceptions with a documented reason.
 
 ### 5.2 Execution checks (run before human review)
 
@@ -551,3 +560,46 @@ All 3 must pass.
 - [ ] Agent-eval test committed
 - [ ] SIGNOFF.md included
 - [ ] REPORT.md documents known limitations
+
+---
+
+## Resources
+
+Foundational reading for creating state-of-the-art benchmarks. Organized by what you'll use them for.
+
+### Benchmark design methodology
+
+| Resource | Key takeaway |
+|---|---|
+| [TB3 Implementation Rubric](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml) | 19-criteria rubric with detailed guidance. The quality bar to hit. |
+| [TB3 Review Automation](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md) | Automated pipeline: static checks → execution checks → agent trials. |
+| [BetterBench](https://arxiv.org/abs/2411.12990) (Stanford, NeurIPS 2024) | 46-criteria framework for evaluating benchmark quality. Most benchmarks fail to report statistical significance or enable replication. |
+| [Demystifying Evals for AI Agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) (Anthropic, 2025) | Start with 20-50 tasks from real failures, grade outcomes not tool-call sequences, use pass@k for non-deterministic systems. |
+| [Challenges in Evaluating AI Systems](https://www.anthropic.com/research/evaluating-ai-systems) (Anthropic, 2023) | Multiple-choice formatting sensitivity shifts scores by ~5%. Human evaluation is subjective. Model-generated evals are circular. |
+
+### Construct validity (does your benchmark measure what it claims?)
+
+| Resource | Key takeaway |
+|---|---|
+| [Measuring What Matters](https://arxiv.org/pdf/2511.04703) (NeurIPS 2025) | 445 benchmarks reviewed; patterns undermining validity of "safety" and "robustness" claims. 8 recommendations. |
+| [Measurement to Meaning](https://arxiv.org/abs/2505.10573) (2025) | Distinguish narrow claims (performance on math tests) from broad claims (general reasoning). |
+| [The Evolving Landscape of LLM Evaluation](https://newsletter.ruder.io/p/the-evolving-landscape-of-llm-evaluation) (Ruder, 2024) | Models show 10% drops on GSM1k vs GSM8k, revealing benchmark-specific overfitting. Assume contamination by design. |
+
+### Anti-gaming and anti-contamination
+
+| Resource | Key takeaway |
+|---|---|
+| [LiveCodeBench](https://arxiv.org/abs/2403.07974) | Time-segmented evaluation: only test on problems released after model's training cutoff. 600+ problems. |
+| [EvalPlus](https://arxiv.org/abs/2305.01210) (NeurIPS 2023) | Adding 80x more tests to HumanEval dropped pass rates by 19-29%. Original test suites are always insufficient. |
+| [Specification Gaming](https://deepmind.google/blog/specification-gaming-the-flip-side-of-ai-ingenuity/) (DeepMind) | Better algorithms find more creative loopholes. Specify outcomes comprehensively. |
+| [Reward Hacking in RL](https://lilianweng.github.io/posts/2024-11-28-reward-hacking/) (Lilian Weng, 2024) | Models modify unit tests to pass coding tasks, exploit length bias, exploit sophistication bias. |
+| [Demonstrating Specification Gaming in Reasoning Models](https://arxiv.org/pdf/2502.13295) (Palisade, 2025) | Reasoning LLMs hack chess by modifying the opponent's engine. Directly relevant to agent benchmarks with tool access. |
+
+### Contribution guides from leading benchmarks
+
+| Benchmark | Format | Key design choices |
+|---|---|---|
+| [SWE-bench](https://arxiv.org/pdf/2310.06770) (Princeton) | Real GitHub issues + existing test suites | 2,294 tasks, 12 repos. Human-verified subset (SWE-bench Verified) used 93 developers, 3 annotators per sample. |
+| [BigCodeBench](https://arxiv.org/abs/2406.15877) (ICLR 2025) | 1,140 tasks, 723 function calls, 139 libraries | 99% branch coverage, avg 5.6 test cases/task. Human performance 97% vs best LLM ~60%. |
+| [GAIA](https://arxiv.org/abs/2311.12983) (Meta-FAIR) | 466 questions requiring reasoning + tool use | Humans 92% vs GPT-4 15%. Targets tasks simple for humans but hard for AI. |
+| [Terminal-Bench](https://arxiv.org/abs/2601.11868) (Stanford + Laude) | 89 curated terminal tasks with Docker environments | Frontier models cap at ~65%. 32,155 trials across 6 agents. |
