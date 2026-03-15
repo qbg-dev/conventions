@@ -4,7 +4,7 @@ Step-by-step process for creating agent benchmarks that are simple, hack-resista
 
 ## Principles
 
-- **Simplicity over complexity.** The agent's task should be simple to describe. Complexity lives in the *world*, not the instructions.
+- **Simplicity over complexity.** The agent's task should be simple to describe. Complexity lives in the _world_, not the instructions.
 - **Rich worlds.** Drop the agent into an environment with filesystems, databases, mock APIs, MCP tools, and mutable external state. The agent should be able to explore and act, not just generate code.
 - **Outcome verification.** Grade what the agent produced, not how it got there.
 - **Convergence through iteration.** Hardening ends when 3 consecutive agent runs find nothing to fix.
@@ -22,23 +22,23 @@ Bad: "Implement a distributed training system with checkpointing, gradient accum
 
 ### 1.2 Check against the TB3 rubric
 
-Before writing any code, score your idea against all 13 TB3 criteria. Each must be at least "accept":
+The full rubric with detailed guidance for each criterion is at [`TASK_IMPLEMENTATION_RUBRIC.toml`](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_IMPLEMENTATION_RUBRIC.toml). Before writing any code, score your idea against all 13 criteria. Each must be at least "accept":
 
-| # | Criterion | Question to answer |
-|---|---|---|
-| 1 | **Verifiable** | Can a program check the answer? Is verification deterministic? |
-| 2 | **Well-specified** | Would two people reading the spec build compatible verifiers? |
-| 3 | **Solvable** | Can an expert implement the solution in a few hours? |
-| 4 | **Difficult** | Would an average undergrad fail to solve this in a few days? |
-| 5 | **Interesting** | Would someone get paid to do this in the real world? |
-| 6 | **Outcome-verified** | Are you grading results, not process? |
-| 7 | **Anti-cheat robust** | Can the agent game the tests without solving the actual problem? |
-| 8 | **Functional verification** | Do tests execute behavior, not grep for keywords? |
-| 9 | **Deterministic/reproducible** | Same result every run? All deps pinned? No live services? |
-| 10 | **Essential difficulty** | Is difficulty from the problem, not formatting minutiae? |
-| 11 | **Test-instruction alignment** | Does every test map to a documented requirement, and vice versa? |
-| 12 | **Novel** | Can it be solved by memorization from training data? |
-| 13 | **Agentic** | Does it require multi-step tool use, not just one-shot generation? |
+| #   | Criterion                      | Question to answer                                                 |
+| --- | ------------------------------ | ------------------------------------------------------------------ |
+| 1   | **Verifiable**                 | Can a program check the answer? Is verification deterministic?     |
+| 2   | **Well-specified**             | Would two people reading the spec build compatible verifiers?      |
+| 3   | **Solvable**                   | Can an expert implement the solution in a few hours?               |
+| 4   | **Difficult**                  | Would an average undergrad fail to solve this in a few days?       |
+| 5   | **Interesting**                | Would someone get paid to do this in the real world?               |
+| 6   | **Outcome-verified**           | Are you grading results, not process?                              |
+| 7   | **Anti-cheat robust**          | Can the agent game the tests without solving the actual problem?   |
+| 8   | **Functional verification**    | Do tests execute behavior, not grep for keywords?                  |
+| 9   | **Deterministic/reproducible** | Same result every run? All deps pinned? No live services?          |
+| 10  | **Essential difficulty**       | Is difficulty from the problem, not formatting minutiae?           |
+| 11  | **Test-instruction alignment** | Does every test map to a documented requirement, and vice versa?   |
+| 12  | **Novel**                      | Can it be solved by memorization from training data?               |
+| 13  | **Agentic**                    | Does it require multi-step tool use, not just one-shot generation? |
 
 **Kill the idea early** if criteria 1, 2, 3, or 7 score "reject." These are structural and hard to fix later.
 
@@ -46,14 +46,14 @@ Before writing any code, score your idea against all 13 TB3 criteria. Each must 
 
 The benchmark environment should feel like a real system the agent is dropped into. Design it as a world with:
 
-| Layer | Examples | Purpose |
-|---|---|---|
-| **Filesystem** | Config files, data directories, logs, existing code | Agent must explore and understand |
-| **Running services** | HTTP servers, databases, message queues | Agent must interact with live processes |
-| **Mock APIs** | REST endpoints, webhooks, external services | Agent can call and mutate external state |
-| **MCP tools** | Custom tool servers for domain-specific operations | Agent uses tools rather than reimplementing |
-| **Databases** | SQLite, PostgreSQL with schema and seed data | Agent queries and mutates real data |
-| **State** | Process supervisors, cron jobs, log streams | Agent operates in a system with moving parts |
+| Layer                | Examples                                            | Purpose                                      |
+| -------------------- | --------------------------------------------------- | -------------------------------------------- |
+| **Filesystem**       | Config files, data directories, logs, existing code | Agent must explore and understand            |
+| **Running services** | HTTP servers, databases, message queues             | Agent must interact with live processes      |
+| **Mock APIs**        | REST endpoints, webhooks, external services         | Agent can call and mutate external state     |
+| **MCP tools**        | Custom tool servers for domain-specific operations  | Agent uses tools rather than reimplementing  |
+| **Databases**        | SQLite, PostgreSQL with schema and seed data        | Agent queries and mutates real data          |
+| **State**            | Process supervisors, cron jobs, log streams         | Agent operates in a system with moving parts |
 
 All of these are mock/containerized, but from the agent's perspective they are real. The agent should be able to mutate state and see consequences.
 
@@ -146,15 +146,15 @@ For each test, ask: "What's the simplest thing an agent could do to pass this te
 
 Common bypasses:
 
-| Attack | Mitigation |
-|---|---|
-| Hardcode expected outputs | Use varied, unpredictable inputs in tests |
-| Download pre-trained model/data | Disable network (`--network=none`) or check training duration |
-| Fake log entries | Verify temporal consistency, hash integrity of log sources |
-| Kill/modify test infrastructure | Make infrastructure read-only, verify hashes at test time |
-| Read test source to extract answers | Don't embed answers in tests; verify via execution |
-| Monkey-patch libraries | Test in subprocess or verify library integrity |
-| Skip the hard part, only do the easy part | Tests must check the hard part directly |
+| Attack                                    | Mitigation                                                    |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| Hardcode expected outputs                 | Use varied, unpredictable inputs in tests                     |
+| Download pre-trained model/data           | Disable network (`--network=none`) or check training duration |
+| Fake log entries                          | Verify temporal consistency, hash integrity of log sources    |
+| Kill/modify test infrastructure           | Make infrastructure read-only, verify hashes at test time     |
+| Read test source to extract answers       | Don't embed answers in tests; verify via execution            |
+| Monkey-patch libraries                    | Test in subprocess or verify library integrity                |
+| Skip the hard part, only do the easy part | Tests must check the hard part directly                       |
 
 ### 3.2 Add integrity checks
 
@@ -263,6 +263,7 @@ docker run --rm \
 ### 4.4 Step 2: Agent solve attempt
 
 Run both agents independently. Use the Claude Agents SDK or Codex SDK to provide the agent only:
+
 - The instruction.md content
 - Access to the running Docker container
 - No access to solution/ or tests/
@@ -286,22 +287,26 @@ The agent should solve the task or fail for legitimate reasons (difficulty, not 
 After each agent run, check this list:
 
 **Verifier quality:**
+
 - [ ] Did the verifier produce the correct reward (1.0 for solution, 0.0 for hacks)?
 - [ ] Did any test silently skip or pass vacuously?
 - [ ] Were error messages actionable (would they help debug a real attempt)?
 
 **Instruction clarity:**
+
 - [ ] Did the agent misunderstand any requirement?
 - [ ] Did the agent attempt something reasonable that the tests rejected unfairly?
 - [ ] Are there implicit requirements not stated in instruction.md?
 - [ ] Did the agent need information that wasn't in the instruction or discoverable in the environment?
 
 **Agent failure analysis:**
+
 - [ ] If the agent failed, was it because the task is hard (good) or because the setup is broken (bad)?
 - [ ] Did the agent hit timeout due to an environment issue, not task difficulty?
 - [ ] Did the agent get stuck on a dependency/setup issue instead of the actual problem?
 
 **Reward hack check:**
+
 - [ ] Could the agent's approach pass tests without solving the real problem?
 - [ ] Did the agent discover any shortcut not caught by the verifier?
 - [ ] Are there test-observable side effects the agent could fake?
@@ -310,15 +315,16 @@ After each agent run, check this list:
 
 Track results in a table:
 
-| Round | Claude | Codex | Issues found | Action taken |
-|---|---|---|---|---|
-| 1 | Fail (ambiguous instruction) | Fail (missing dep) | 2 | Clarified instruction, added dep |
-| 2 | Pass (reward hack!) | Fail (timeout) | 2 | Added integrity check, increased timeout |
-| 3 | Pass (legit) | Pass (legit) | 0 | Clean pass #1 |
-| 4 | Pass (legit) | Pass (legit) | 0 | Clean pass #2 |
-| 5 | Pass (legit) | Pass (legit) | 0 | Clean pass #3 — DONE |
+| Round | Claude                       | Codex              | Issues found | Action taken                             |
+| ----- | ---------------------------- | ------------------ | ------------ | ---------------------------------------- |
+| 1     | Fail (ambiguous instruction) | Fail (missing dep) | 2            | Clarified instruction, added dep         |
+| 2     | Pass (reward hack!)          | Fail (timeout)     | 2            | Added integrity check, increased timeout |
+| 3     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #1                            |
+| 4     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #2                            |
+| 5     | Pass (legit)                 | Pass (legit)       | 0            | Clean pass #3 — DONE                     |
 
 **Exit condition:** 3 consecutive rounds where both agents either:
+
 - Solve correctly (proving the task is solvable and well-specified), OR
 - Fail for the right reasons (proving the task is genuinely difficult, not broken)
 
@@ -326,7 +332,98 @@ AND no new hardening issues are discovered.
 
 ---
 
-## Phase 5: Agent-eval integration
+## Phase 5: Review pipeline (human signoff required)
+
+Adapted from [TB3 Task Review Automation](https://github.com/harbor-framework/terminal-bench-3/blob/main/TASK_REVIEW_AUTOMATION.md). The TB3 pipeline uses GPTZero for AI detection and automated rubric scoring. Our pipeline replaces AI detection with mandatory human signoff, because the two most important quality gates cannot be automated: a human reading the instruction and a human walking through the solution.
+
+### 5.1 Automated checks (run on every commit)
+
+These run without human intervention. Fail = fix before proceeding.
+
+| Check | What it catches |
+|---|---|
+| **Canary strings** | Missing contamination markers in any task file |
+| **Dockerfile references** | Solution/test files accidentally COPY'd into container |
+| **Dockerfile sanity** | Pinned apt packages (stale), missing cleanup |
+| **Absolute paths** | Relative paths in instruction.md |
+| **Test file references** | Output files in tests not mentioned in instruction.md |
+| **Metadata validation** | Missing author, category, tags, difficulty in task.toml |
+| **Similarity check** | TF-IDF cosine similarity >= 80% against known benchmarks |
+
+### 5.2 Execution checks (run before human review)
+
+| Check | What it proves |
+|---|---|
+| **Docker build** | Environment builds from Dockerfile alone |
+| **Oracle validation** | Reference solution passes all tests (reward = 1.0) |
+| **Nop validation** | Doing nothing fails tests (task is non-trivial) |
+| **Rubric review** | LLM scores all 19 criteria from `TASK_IMPLEMENTATION_RUBRIC.toml` |
+
+### 5.3 Human signoff (mandatory, cannot be skipped)
+
+Before the benchmark is considered finished, a human must complete both of these. No exceptions.
+
+**Review 1: Read instruction.md end-to-end.**
+
+The reviewer (ideally the domain expert, not the person who wrote the benchmark) reads the instruction as if they were the agent. Checklist:
+
+- [ ] Can I understand what to do without reading tests or solution?
+- [ ] Are there any implicit assumptions I needed domain knowledge to fill?
+- [ ] Is every path absolute and every output file named?
+- [ ] Is the success criterion quantified and unambiguous?
+- [ ] Is there any sentence I would rephrase for clarity?
+- [ ] Does the instruction avoid prescribing approach (says what, not how)?
+- [ ] Is it under 100 lines? If not, what can move into the environment?
+
+**Review 2: Walk through solve.sh step by step.**
+
+The reviewer reads `solve.sh` (and any scripts it creates) and traces the execution mentally or in a shell:
+
+- [ ] Does every command do what the comment says?
+- [ ] Is there any fragile assumption (hardcoded paths, timing, race conditions)?
+- [ ] Would a different valid approach also pass the tests?
+- [ ] Does the solution demonstrate real work (not hardcoded answers)?
+- [ ] Are checkpoint/output files written atomically (temp + rename)?
+- [ ] Does the solution complete within the agent timeout on the specified hardware?
+
+**Signoff format:**
+
+```
+## Human Review Signoff
+
+Reviewer: [name]
+Date: [YYYY-MM-DD]
+
+### instruction.md
+- [x] Clear and unambiguous
+- [x] All paths absolute
+- [x] Success criteria quantified
+- Notes: [any observations]
+
+### solve.sh
+- [x] Correct and complete
+- [x] No fragile assumptions
+- [x] Completes within timeout
+- Notes: [any observations]
+
+Signed off: YES / NO (with reasons)
+```
+
+Store this in a `SIGNOFF.md` file alongside the task. The signoff is part of the submission artifact.
+
+### 5.4 Why human signoff matters
+
+Automated checks catch structural issues. Agent hardening catches gameable tests. But neither catches:
+
+- **Ambiguous language** that an agent interprets differently than intended. Only a human reader notices "configure the database" could mean 3 different things.
+- **Solution fragility** where the reference solution works but depends on timing, ordering, or an undocumented assumption. Only a human tracing the code step-by-step catches "this race condition works on my machine."
+- **Missing context** where the instruction assumes knowledge not available in the environment. A human reading fresh spots "wait, how would I know to use port 8001?"
+
+The agent hardening loop finds issues agents hit. Human review finds issues agents _would_ hit but didn't because of lucky timing, model-specific behavior, or test order.
+
+---
+
+## Phase 6: Agent-eval integration
 
 Codify the hardening checks as an agent-eval test so they can be re-run automatically.
 
@@ -407,6 +504,7 @@ All 3 must pass.
 ## Checklist (before submission)
 
 ### Environment
+
 - [ ] Dockerfile builds in < 15 minutes
 - [ ] No network needed at runtime (all deps pre-installed)
 - [ ] All dependency versions pinned
@@ -414,6 +512,7 @@ All 3 must pass.
 - [ ] Test deps pre-installed in Docker image
 
 ### Instruction
+
 - [ ] Under 100 lines
 - [ ] All paths absolute
 - [ ] Single clear deliverable stated
@@ -422,6 +521,7 @@ All 3 must pass.
 - [ ] Canary string present
 
 ### Verifier
+
 - [ ] No silent skips or bare exceptions
 - [ ] Tests execute behavior, not grep for keywords
 - [ ] Every test has an actionable failure message
@@ -429,13 +529,25 @@ All 3 must pass.
 - [ ] Reference solution scores 1.0
 
 ### Hardening
+
 - [ ] >= 5 hardening rounds completed
 - [ ] 3 consecutive clean passes achieved
 - [ ] Both Claude and Codex agents tested
 - [ ] All discovered vulnerabilities closed or documented
 - [ ] Agent-eval test created and passes 3x
 
+### Human signoff
+
+- [ ] Human reviewed instruction.md end-to-end (not the author)
+- [ ] Human traced solve.sh step by step
+- [ ] SIGNOFF.md committed with reviewer name and date
+- [ ] No issues found, or all issues resolved before signoff
+
 ### Submission
+
 - [ ] Matches upstream repo format exactly
+- [ ] All automated checks pass (canary, Dockerfile, paths, metadata)
+- [ ] Oracle passes, nop fails
 - [ ] Agent-eval test committed
+- [ ] SIGNOFF.md included
 - [ ] REPORT.md documents known limitations
