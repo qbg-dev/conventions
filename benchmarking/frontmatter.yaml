@@ -1,0 +1,12 @@
+name: benchmarking
+description: >
+  How to create and harden agent benchmarks. Covers design, build, analytical
+  hardening, the execute-harden loop with Claude + Codex agents, and human review.
+  Read when creating, running, or hardening any benchmark task.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md
+  scripts: scripts/ci_checks/
+  references: references/resources.md

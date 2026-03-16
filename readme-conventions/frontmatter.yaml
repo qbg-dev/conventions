@@ -1,0 +1,10 @@
+name: readme-conventions
+description: >
+  How to write READMEs that feel like infrastructure, not marketing. 100 rules
+  covering structure, tone, technical accuracy, and agent-readability. Read when
+  writing or reviewing any README.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md

@@ -1,0 +1,10 @@
+name: agent-reproducibility
+description: >
+  Every qbg-dev repo must be set up end-to-end by an agent given only the repo URL.
+  Covers repo structure, agent-specific requirements, setup verification with
+  two-agent testing, and common failure modes. Read when creating or reviewing repos.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md

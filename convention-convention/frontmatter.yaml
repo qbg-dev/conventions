@@ -1,0 +1,9 @@
+name: convention-convention
+description: >
+  Meta-convention defining what a convention is, how to structure one, and when
+  to create vs. integrate. Read before creating or restructuring any convention.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md
