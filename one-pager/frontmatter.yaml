@@ -1,0 +1,11 @@
+name: one-pager
+description: >
+  How to write one-pagers that align stakeholders on a problem and what's needed
+  from them. Covers structure, writing rules, anti-patterns, and tone. Read when
+  writing any stakeholder-facing document, proposal, project brief, or alignment
+  doc. Also read when asked to draft a "summary" or "overview" for decision-makers.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md
