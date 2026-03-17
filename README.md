@@ -12,6 +12,7 @@ Engineering conventions for qbg-dev projects. Each convention is a skill-like di
 | [readme-conventions](readme-conventions/) | How to write READMEs that feel like infrastructure, not marketing. 100 rules. |
 | [one-pager](one-pager/) | How to write one-pagers (1–4 pages) that align stakeholders on a problem and what's needed from them. 85 rules. |
 | [iterative-hardening](iterative-hardening/) | Red-team → fix → prune loop for hardening agent harnesses against adversarial test suites. |
+| [bench-supervision](bench-supervision/) | Continuous monitoring of benchmark pipelines: cron-driven health checks, rate limit recovery (model fallback + token rotation), progressive difficulty testing, convergence detection, cost management. |
 
 ## Structure
 
