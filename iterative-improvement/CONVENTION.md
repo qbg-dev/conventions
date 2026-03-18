@@ -46,7 +46,7 @@ End-to-end workflow for continuously improving agent harnesses. Combines adversa
 
 ## Step 1: Probe
 
-Launch a subagent swarm to adversarially design tests the harness fails.
+Launch a subagent swarm to adversarially design tests the harness fails. **This is non-negotiable.** Adversarial probing is the engine of iterative improvement—without it, the loop degenerates into re-running passing tests. Each probe round must actively search for new failures, not validate existing passes.
 
 **Parameters:**
 - Concurrency: 5 subagents in parallel
@@ -246,6 +246,16 @@ fleet hook add --event PreToolUse \
 CronCreate("23 * * * *", "Run one iterative-improvement round")
 ```
 
+**Cron-mission separation:** The cron prompt should be a thin pointer, not the protocol itself. Keep it to 3-5 lines that reference `mission.md` for the full procedure. This prevents drift between what the scheduler says and what the actual protocol is.
+
+```
+# Good: thin cron prompt
+"Read mission.md. Execute the hardening protocol. Focus: SWT edge cases, export endpoints."
+
+# Bad: 50+ line cron prompt duplicating mission.md content
+"Step 1: Run probe with concurrency 5. Step 2: Fix failures using..."
+```
+
 ### Round tracking
 
 Persist round state in the working directory:
@@ -315,3 +325,5 @@ When a harness converges (all cases pass on the target model), expand:
 - **Don't skip the prune step.** Unbounded test suites slow down every future round.
 - **Don't count bad tests as failures.** Inflate failure counts without improving the harness.
 - **Don't make structural changes to fix edge cases.** Minimal fixes prevent regressions.
+- **Don't duplicate protocol in the cron prompt.** The cron/scheduler prompt should NOT contain the full hardening protocol—it should point to a `mission.md` that does. Duplicating protocol detail in the cron creates drift: the cron says one thing, `mission.md` says another, and neither is authoritative. Keep the cron prompt to 3-5 lines: "Read mission.md. Execute the protocol. Key focus: [1-3 bullets]."
+- **Don't re-run passing tests and call it hardening.** Each round must spawn a test-finder subagent that actively queries the system with hard adversarial queries and identifies genuine new failures. If a probe round finds zero new failures, that's convergence detection (Step 4)—not a successful hardening round. The core loop is probe→find failures→write tests→fix→verify. Without new failures, there is no improvement.
