@@ -317,6 +317,17 @@ When a harness converges (all cases pass on the target model), expand:
 
 ---
 
+## Adversarial Probing Best Practices (learned from ChengXing-Bot hardening)
+
+1. **Give the probe agent full context**: existing test suite, system prompt, SQL/DB access, AND live API access. It needs to query the real system, not theorize.
+2. **Require the agent to classify failures** using the taxonomy (capability/task_design/verifier_bug) in its output. This saves a classification step later.
+3. **Maintain a probe query bank** (`probes.json`): 50+ hard queries categorized by type (aggregation, cross-reference, ambiguity, boundary, negative). The probe agent picks the 10 least-tested rather than generating from scratch.
+4. **Require SQL groundtruth verification**: The agent must run the SQL query locally AND query the live API, then compare. This catches both "wrong answer" and "no answer" failures.
+5. **Run against all models**: Test each failing query against all configured models to distinguish model-specific vs systemic failures.
+6. **20-min agent is too slow for a cron cycle**: For recurring use, build a deterministic `scripts/probe.ts` that auto-generates and runs 5 queries. Reserve the full agent for deep investigation rounds.
+
+---
+
 ## Anti-Patterns
 
 - **Don't restart long-running tasks.** A multi-hour agent running complex work is normal, not stuck.
