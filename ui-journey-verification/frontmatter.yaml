@@ -1,0 +1,12 @@
+name: ui-journey-verification
+description: >
+  Convention for documenting and verifying critical UI user journeys. Covers
+  how to write UI_JOURNEY.md files, how a verification agent walks through
+  journeys with Playwright, rotation strategy for coverage, and integration
+  with hardening rounds. Read when setting up UI testing, writing journey
+  definitions, or running verification cycles.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md

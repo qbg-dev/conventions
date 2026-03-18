@@ -12,6 +12,7 @@ Engineering conventions for qbg-dev projects. Each convention is a skill-like di
 | [readme-conventions](readme-conventions/) | How to write READMEs that feel like infrastructure, not marketing. 100 rules. |
 | [one-pager](one-pager/) | How to write one-pagers (1–4 pages) that align stakeholders on a problem and what's needed from them. 85 rules. |
 | [iterative-improvement](iterative-improvement/) | End-to-end workflow for continuously improving agent harnesses: probe→fix→prune→supervise→verify loop. Covers adversarial red-teaming, pipeline supervision, rate limit recovery, progressive difficulty, convergence detection, E2E verification. |
+| [ui-journey-verification](ui-journey-verification/) | Document critical UI user journeys in UI_JOURNEY.md, verify with Playwright agent on rotation, integrate with hardening rounds. 48 rules. |
 
 ## Structure
 
