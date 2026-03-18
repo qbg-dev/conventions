@@ -291,6 +291,59 @@ When a harness converges (all cases pass on the target model), expand:
 
 ---
 
+## Post-Convergence: Pushing What's Possible
+
+When the loop converges (3+ consecutive clean probe rounds), the harness passes everything you've thrown at it. **This does not mean you're done.** It means your feedback loops are exhausted—not that the product is good enough. The protocol shifts from "find and fix failures" to "expand what's possible."
+
+### 1. Polish every user-facing output
+
+Review every surface the user touches. Is the formatting perfect? Are numbers consistent (units, decimals, currency)? Are error messages helpful or cryptic? Is the loading experience smooth or janky? Are empty states informative? Polish the product—don't pad it with features nobody asked for.
+
+This is the highest-leverage work post-convergence because it requires no new infrastructure, just attention to detail that agents tend to skip when chasing test failures.
+
+### 2. Ask the user for the metric that matters most
+
+Don't assume what to optimize next. Ask the operator/client: "What single metric would make you most confident in this system?"
+
+Examples:
+- Construction cost AI → "number of distinct query types the AI handles correctly"
+- Customer support bot → "% of conversations resolved without human handoff"
+- Code assistant → "time from prompt to working code"
+
+The metric drives what to expand. Without it, you'll optimize for your test suite instead of for the user.
+
+### 3. Create harder evaluations
+
+The test suite should always be harder than what the harness currently passes. After convergence:
+- Add edge cases the current suite doesn't cover
+- Test with real user scenarios (not synthetic ones)
+- Test failure modes: what happens when the DB is empty, when the query is ambiguous, when the user asks something out of scope?
+- Raise the difficulty bar until the pass rate drops back to 60-80%
+
+If every test passes, your tests aren't hard enough—not your harness is good enough.
+
+### 4. Get new feedback loops
+
+When internal test scenarios are exhausted, the agent should proactively ask: "We've exhausted our current test scenarios. How can we get more feedback?"
+
+Sources of new feedback loops:
+- **Client demo feedback**—run a live demo, collect questions the AI couldn't answer
+- **Real user session recordings**—analyze actual queries from production logs
+- **Client feature requests**—what does the client wish it could do?
+- **Competitive analysis**—what do competing products handle that yours doesn't?
+- **Domain expert interviews**—what would a senior engineer ask this system?
+
+Each new feedback source restarts the probe→fix loop with genuinely new failure modes.
+
+### Post-convergence anti-patterns
+
+- **Don't add features nobody asked for just to fill time.** Features without user demand are liabilities, not assets.
+- **Don't re-run passing tests and call it "hardening."** That's convergence—you already detected it.
+- **Don't coast.** There's always a harder query, a rougher edge, a user scenario you haven't tested.
+- **Don't confuse "all tests pass" with "the product is good enough."** Tests measure what you thought to test. The gap between your test suite and reality is where bugs live.
+
+---
+
 ## Configurable Parameters
 
 | Parameter | Default | When to change |
