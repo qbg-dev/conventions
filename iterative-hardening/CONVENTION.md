@@ -167,3 +167,50 @@ Each round appends to `.hardening-log.jsonl`:
 | Failures to find | 5 | Lower for early rounds, raise for mature suites |
 | Regression sample % | 20% | Raise after structural changes |
 | Max rounds | unbounded | Set via hook or cron |
+
+---
+
+## Extension: Product Hardening Rounds
+
+When hardening a user-facing product (not just a test harness), expand the loop to include feature work and UI verification. Learned from ChengXing-Bot (construction cost AI chatbot, 20+ rounds).
+
+### Phase 3.5: Feature Tasks in Every Round
+
+Don't treat hardening as test-only. Each round should also advance pending feature tasks:
+
+```
+Round = Phase 0 (infra) + Phase 1 (UI walk-through) + Phase 2 (probe)
+      + Phase 3 (E2E tests) + Phase 3.5 (features) + Phase 4 (deploy)
+      + Phase 5 (reflect)
+```
+
+Use parallel agents for independent features (e.g., one agent builds a modal component while another adds a backend endpoint). Quick wins first, then larger features.
+
+### Transparency Testing (for auditable systems)
+
+When the system serves auditors or compliance reviewers, add a transparency dimension to probing:
+
+| Check | What to verify |
+|-------|---------------|
+| Tool logic visible | Can the user see what SQL/query ran? |
+| Data provenance | Does each response cite its data source? |
+| Accuracy disclaimers | Does the UI surface "data may not be accurate"? |
+| Raw data access | Can users browse underlying tables and row counts? |
+| Architecture inspectable | Is the data pipeline (input → parse → store → query) documented in-app? |
+
+### Multi-Model Testing
+
+When the system supports multiple LLM providers, run probes against all providers to reveal provider-specific blind spots. Log per-model pass rates. Default to the most reliable provider, but test all to find prompt weaknesses.
+
+### Login Token Pattern for Automated Testing
+
+Add a one-time token endpoint (`POST /auth/token → { token, url }`) for automated UI testing. Eliminates password entry in every Playwright/Chrome test cycle. Token auto-expires after 5 minutes.
+
+### Cron-Driven Rounds
+
+```
+CronCreate: */10 * * * * (every 10 min)
+Prompt: "Read mission.md. Execute the 5-phase protocol. Tackle pending feature tasks."
+```
+
+Include a Nietzsche-style self-overcoming ethos in the cron prompt—each round must leave the system measurably better than before. The cron prompt should reference a `mission.md` that contains the full protocol, query rotation lists, and UI checklists.
