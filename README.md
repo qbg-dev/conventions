@@ -11,8 +11,7 @@ Engineering conventions for qbg-dev projects. Each convention is a skill-like di
 | [agent-reproducibility](agent-reproducibility/) | Every repo must be agent-reproducible: clone → setup → run with zero human intervention. Two-agent verified. 52 rules. |
 | [readme-conventions](readme-conventions/) | How to write READMEs that feel like infrastructure, not marketing. 100 rules. |
 | [one-pager](one-pager/) | How to write one-pagers (1–4 pages) that align stakeholders on a problem and what's needed from them. 85 rules. |
-| [iterative-hardening](iterative-hardening/) | Red-team → fix → prune loop for hardening agent harnesses against adversarial test suites. |
-| [bench-supervision](bench-supervision/) | Continuous monitoring of benchmark pipelines: cron-driven health checks, rate limit recovery (model fallback + token rotation), progressive difficulty testing, convergence detection, cost management. |
+| [iterative-improvement](iterative-improvement/) | End-to-end workflow for continuously improving agent harnesses: probe→fix→prune→supervise→verify loop. Covers adversarial red-teaming, pipeline supervision, rate limit recovery, progressive difficulty, convergence detection, E2E verification. |
 
 ## Structure
 

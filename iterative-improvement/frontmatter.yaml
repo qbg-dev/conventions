@@ -1,0 +1,14 @@
+name: iterative-improvement
+description: >
+  End-to-end workflow for continuously improving agent harnesses (chatbots,
+  tool-use agents, pipelines, benchmarks). Covers: the probe→fix→prune loop
+  (adversarial red-teaming, minimal fixes, regression sampling, test suite
+  pruning), pipeline supervision (cron-driven health checks, restart/recovery,
+  rate limit handling), progressive difficulty testing, convergence detection,
+  and cost management. Read when hardening any agent harness, operating a
+  benchmark supervisor, or running red-team cycles.
+type: convention
+version: "1.0"
+owner: warren
+files:
+  convention: CONVENTION.md
